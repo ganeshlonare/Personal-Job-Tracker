@@ -1,0 +1,14 @@
+node_modules
+.next
+.env.local
+.env
+.vscode
+.git
+.gitignore
+Dockerfile
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+coverage
+dist
+.idea

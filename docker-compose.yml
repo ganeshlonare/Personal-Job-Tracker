@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    # Do not bind Mongo to the host port to avoid conflicts with a host MongoDB.
+    # The app will connect to this service using the Docker network at "mongo:27017".
+
+  app:
+    build:
+      context: .
+      args:
+        MONGODB_URI: "mongodb://mongo:27017/jobos"
+    image: personal_tracker:latest
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    environment:
+      # override to point at the mongo service
+      - MONGODB_URI=mongodb://mongo:27017/jobos
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:
