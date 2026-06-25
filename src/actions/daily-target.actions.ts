@@ -161,7 +161,7 @@ export async function upsertCategoryTarget(
   }
 }
 
-export async function getDailyTargetProgress() {
+export async function getDailyTargetProgress(clientDate?: string, tzOffset?: number) {
   const session = await auth();
   if (!session?.user?.id) {
     return {
@@ -173,16 +173,27 @@ export async function getDailyTargetProgress() {
 
   const [targetsDoc, appCount, mailCount] = await Promise.all([
     getDailyTargets(),
-    getTodaysApplicationCount(),
-    getTodaysColdMailCount(),
+    getTodaysApplicationCount(clientDate, tzOffset),
+    getTodaysColdMailCount(clientDate, tzOffset),
   ]);
 
   await connectDB();
+  // If clientDate and tzOffset are provided, we compute strict bounds, otherwise fallback
+  let taskStart = startOfDay(new Date());
+  let taskEnd = endOfDay(new Date());
+  
+  if (clientDate && typeof tzOffset === 'number') {
+    const [y, m, d] = clientDate.split("-").map(Number);
+    const utcMidnight = new Date(Date.UTC(y, m - 1, d));
+    taskStart = new Date(utcMidnight.getTime() + tzOffset * 60000);
+    taskEnd = new Date(taskStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+  }
+
   const todoCount = await Task.countDocuments({
     userId: session.user.id,
     isDailyTarget: true,
     category: "todo",
-    date: { $gte: startOfDay(new Date()), $lte: endOfDay(new Date()) },
+    date: { $gte: taskStart, $lte: taskEnd },
   });
 
   const result = {} as Record<

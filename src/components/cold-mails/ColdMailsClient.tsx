@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { createColdMail, updateColdMail, deleteColdMail } from "@/actions/cold-mail.actions";
 import { formatDate } from "@/lib/utils";
+import { getLocalDateString, isTodayLocal } from "@/lib/dateUtils";
 import { COLD_MAIL_TEMPLATES } from "@/lib/coldMailTemplates";
 
 export interface IColdMail {
@@ -120,7 +121,7 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
     company: "",
     subject: "",
     status: "sent" as IColdMail["status"],
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(),
     templateId: "",
     body: "",
   });
@@ -133,14 +134,7 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
   const inputCls =
     "px-3 py-2.5 rounded-xl text-sm outline-none w-full cursor-text bg-[var(--color-secondary)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 transition-all";
 
-  const todayKey = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }, []);
-  const todays = mails.filter(m => m.date?.split("T")[0] === todayKey);
+  const todays = useMemo(() => mails.filter((m) => isTodayLocal(m.date)), [mails]);
 
   function fillTemplateValues(tplBody?: string, tplSubject?: string) {
     const name = form.recipientName || "";
@@ -214,7 +208,7 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
       }
 
       // reset form
-      setForm({ recipientName: "", recipientEmail: "", company: "", subject: "", status: "sent", date: new Date().toISOString().split("T")[0], templateId: "", body: "" });
+      setForm({ recipientName: "", recipientEmail: "", company: "", subject: "", status: "sent", date: getLocalDateString(), templateId: "", body: "" });
       setEditingId(null);
     } finally {
       setIsAdding(false);
@@ -288,7 +282,7 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
                     company: "",
                     subject: "",
                     status: "sent",
-                    date: new Date().toISOString().split("T")[0],
+                    date: getLocalDateString(),
                     templateId: "",
                     body: "",
                   })

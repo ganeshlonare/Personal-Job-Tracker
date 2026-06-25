@@ -89,7 +89,7 @@ export function JournalClient({ initialJournals, initialToday }: JournalClientPr
               <PenLine className="w-5 h-5 text-cyan-500" /> Today's Entry
             </h2>
             <span className="text-sm font-medium px-3 py-1 rounded-full" style={{ background: "var(--color-secondary)", color: "var(--color-muted-foreground)" }}>
-              {formatDate(new Date().toISOString())}
+              {formatDate(new Date())}
             </span>
           </div>
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Plus, Trophy, Target, Trash2, X, Loader2, TrendingUp, Calendar, Plus as PlusIcon, Pause, Play, Flag, Edit3, MoreVertical } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { createGoal, deleteGoal, incrementGoal, addMilestone, toggleGoalStatus } from "@/actions/goal.actions";
 import { calculatePercentage, formatDate } from "@/lib/utils";
@@ -56,7 +57,7 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
       category: goal.category,
       targetValue: goal.targetValue.toString(),
       unit: goal.unit || "",
-      deadline: goal.deadline ? new Date(goal.deadline).toISOString().split("T")[0] : "",
+      deadline: goal.deadline ? getLocalDateString(new Date(goal.deadline)) : "",
       dailyTarget: goal.dailyTarget.toString(),
     });
     setEditingId(goal._id);

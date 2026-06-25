@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -30,18 +30,26 @@ type ViewMode = "list" | "kanban" | "table";
 
 export function ApplicationsClient({
   initialApplications,
-  initialTodaysApplications = [],
 }: ApplicationsClientProps) {
   const [applications, setApplications] = useState<IApplication[]>(initialApplications);
-  const [todaysApplications, setTodaysApplications] = useState<IApplication[]>(
-    initialTodaysApplications
-  );
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<IApplication | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  // Compute todays applications strictly on the client using local timezone
+  const todaysApplications = useMemo(() => {
+    return applications.filter((app) => {
+      if (app.appliedDate) {
+        return new Date(app.appliedDate as unknown as string).toDateString() === new Date().toDateString();
+      }
+      return new Date(app.createdAt as unknown as string).toDateString() === new Date().toDateString() && !["wishlist", "planning"].includes(app.status);
+    });
+  }, [applications]);
 
   const filtered = useMemo(() => {
     return applications.filter((app) => {
@@ -60,13 +68,17 @@ export function ApplicationsClient({
     });
   }, [applications, searchQuery, statusFilter, priorityFilter]);
 
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, priorityFilter, viewMode]);
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this application? This cannot be undone.")) return;
     setIsDeleting(id);
     const result = await deleteApplication(id);
     if (result.success) {
       setApplications((prev) => prev.filter((a) => a._id !== id));
-      setTodaysApplications((prev) => prev.filter((a) => a._id !== id));
       toast.success("Application deleted");
     } else {
       toast.error("Failed to delete");
@@ -78,7 +90,6 @@ export function ApplicationsClient({
     const result = await archiveApplication(id);
     if (result.success) {
       setApplications((prev) => prev.filter((a) => a._id !== id));
-      setTodaysApplications((prev) => prev.filter((a) => a._id !== id));
       toast.success("Application archived");
     }
   };
@@ -87,9 +98,6 @@ export function ApplicationsClient({
     const result = await updateApplication(id, { status });
     if (result.success) {
       setApplications((prev) =>
-        prev.map((a) => (a._id === id ? { ...a, status: status as IApplication["status"] } : a))
-      );
-      setTodaysApplications((prev) =>
         prev.map((a) => (a._id === id ? { ...a, status: status as IApplication["status"] } : a))
       );
       toast.success("Status updated");
@@ -315,22 +323,55 @@ export function ApplicationsClient({
               onStatusChange={handleStatusChange}
               onSelect={setSelectedApp}
             />
-          ) : viewMode === "table" ? (
-            <TableView
-              applications={filtered}
-              onDelete={handleDelete}
-              onArchive={handleArchive}
-              onSelect={setSelectedApp}
-              isDeleting={isDeleting}
-            />
           ) : (
-            <ListView
-              applications={filtered}
-              onDelete={handleDelete}
-              onArchive={handleArchive}
-              onSelect={setSelectedApp}
-              isDeleting={isDeleting}
-            />
+            <>
+              {viewMode === "table" ? (
+                <TableView
+                  applications={filtered.slice((page - 1) * pageSize, page * pageSize)}
+                  onDelete={handleDelete}
+                  onArchive={handleArchive}
+                  onSelect={setSelectedApp}
+                  isDeleting={isDeleting}
+                />
+              ) : (
+                <ListView
+                  applications={filtered.slice((page - 1) * pageSize, page * pageSize)}
+                  onDelete={handleDelete}
+                  onArchive={handleArchive}
+                  onSelect={setSelectedApp}
+                  isDeleting={isDeleting}
+                />
+              )}
+              
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {Math.min(filtered.length, (page - 1) * pageSize + 1)}-{Math.min(filtered.length, page * pageSize)} of {filtered.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 rounded-lg text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                  >
+                    Prev
+                  </button>
+                  <div className="text-sm tabular-nums" style={{ color: "var(--color-muted-foreground)" }}>
+                    {page}/{Math.max(1, Math.ceil(filtered.length / pageSize))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={page >= Math.max(1, Math.ceil(filtered.length / pageSize))}
+                    onClick={() => setPage((p) => Math.min(Math.max(1, Math.ceil(filtered.length / pageSize)), p + 1))}
+                    className="px-3 py-1.5 rounded-lg text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -372,17 +413,6 @@ export function ApplicationsClient({
                     setApplications((prev) =>
                       prev.map((a) => (a._id === updatedApp._id ? updatedApp : a))
                     );
-                    setTodaysApplications((prev) => {
-                      const isToday = initialTodaysApplications.some(
-                        (a) => a._id === updatedApp._id
-                      );
-                      if (isToday) {
-                        return prev.map((a) =>
-                          a._id === updatedApp._id ? updatedApp : a
-                        );
-                      }
-                      return prev;
-                    });
                     setSelectedApp(updatedApp);
                   }}
                 />

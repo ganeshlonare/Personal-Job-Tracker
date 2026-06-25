@@ -69,12 +69,20 @@ export async function deleteColdMail(id: string) {
   }
 }
 
-export async function getTodaysColdMailCount() {
+export async function getTodaysColdMailCount(clientDate?: string, tzOffset?: number) {
   const session = await auth();
   if (!session?.user?.id) return { count: 0 };
 
   await connectDB();
-  const { start, nextDay } = getLocalDayBounds();
+  let start = getLocalDayBounds().start;
+  let nextDay = getLocalDayBounds().nextDay;
+
+  if (clientDate && typeof tzOffset === 'number') {
+    const [y, m, d] = clientDate.split("-").map(Number);
+    const utcMidnight = new Date(Date.UTC(y, m - 1, d));
+    start = new Date(utcMidnight.getTime() + tzOffset * 60000);
+    nextDay = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  }
 
   const count = await ColdMail.countDocuments({ userId: session.user.id, date: { $gte: start, $lt: nextDay } });
   return { count };

@@ -142,13 +142,21 @@ export async function archiveApplication(id: string) {
   return updateApplication(id, { archived: true });
 }
 
-export async function getTodaysApplications() {
+export async function getTodaysApplications(clientDate?: string, tzOffset?: number) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
   await connectDB();
 
-  const { start, nextDay } = getLocalDayBounds();
+  let start = getLocalDayBounds().start;
+  let nextDay = getLocalDayBounds().nextDay;
+
+  if (clientDate && typeof tzOffset === 'number') {
+    const [y, m, d] = clientDate.split("-").map(Number);
+    const utcMidnight = new Date(Date.UTC(y, m - 1, d));
+    start = new Date(utcMidnight.getTime() + tzOffset * 60000);
+    nextDay = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  }
 
   const applications = await Application.find({
     userId: session.user.id,
@@ -168,12 +176,21 @@ export async function getTodaysApplications() {
   return JSON.parse(JSON.stringify(applications));
 }
 
-export async function getTodaysApplicationCount() {
+export async function getTodaysApplicationCount(clientDate?: string, tzOffset?: number) {
   const session = await auth();
   if (!session?.user?.id) return { count: 0 };
 
   await connectDB();
-  const { start, nextDay } = getLocalDayBounds();
+  
+  let start = getLocalDayBounds().start;
+  let nextDay = getLocalDayBounds().nextDay;
+
+  if (clientDate && typeof tzOffset === 'number') {
+    const [y, m, d] = clientDate.split("-").map(Number);
+    const utcMidnight = new Date(Date.UTC(y, m - 1, d));
+    start = new Date(utcMidnight.getTime() + tzOffset * 60000);
+    nextDay = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  }
 
   const count = await Application.countDocuments({
     userId: session.user.id,

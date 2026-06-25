@@ -5,6 +5,8 @@ import { CheckCircle2 } from "lucide-react";
 import { getDailyTargetProgress } from "@/actions/daily-target.actions";
 import { DAILY_TARGET_META, type DailyTargetCategory } from "@/lib/dailyTargetConfig";
 
+import { getLocalDateString } from "@/lib/dateUtils";
+
 interface Props {
   category: DailyTargetCategory;
   title?: string;
@@ -21,7 +23,7 @@ export default function TargetProgress({ category, title }: Props) {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    getDailyTargetProgress()
+    getDailyTargetProgress(getLocalDateString(), new Date().getTimezoneOffset())
       .then((prog) => {
         if (!mounted) return;
         setTarget(prog[category].target);

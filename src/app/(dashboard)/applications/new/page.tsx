@@ -11,6 +11,7 @@ import Link from "next/link";
 import { createApplication } from "@/actions/application.actions";
 import { APPLICATION_STATUSES, PRIORITIES, PLATFORMS, REMOTE_OPTIONS } from "@/lib/constants";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 const applicationSchema = z.object({
   company: z.string().min(1, "Company is required"),
@@ -243,7 +244,7 @@ export default function NewApplicationPage() {
                 type="date"
                 {...register("appliedDate")}
                 className={inputClass}
-                defaultValue={new Date().toISOString().split("T")[0]}
+                defaultValue={getLocalDateString()}
               />
             </div>
 
