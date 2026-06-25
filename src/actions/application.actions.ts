@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import Application from "@/models/Application";
 import { revalidatePath } from "next/cache";
+import { getLocalDayBounds } from "@/lib/utils";
 
 export async function getApplications(filters?: {
   status?: string;
@@ -147,19 +148,16 @@ export async function getTodaysApplications() {
 
   await connectDB();
 
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  const { start, nextDay } = getLocalDayBounds();
 
   const applications = await Application.find({
     userId: session.user.id,
     archived: false,
     $or: [
-      { appliedDate: { $gte: start, $lt: end } },
+      { appliedDate: { $gte: start, $lt: nextDay } },
       {
         appliedDate: { $exists: false },
-        createdAt: { $gte: start, $lt: end },
+        createdAt: { $gte: start, $lt: nextDay },
         status: { $nin: ["wishlist", "planning"] },
       },
     ],
@@ -175,19 +173,16 @@ export async function getTodaysApplicationCount() {
   if (!session?.user?.id) return { count: 0 };
 
   await connectDB();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  const { start, nextDay } = getLocalDayBounds();
 
   const count = await Application.countDocuments({
     userId: session.user.id,
     archived: false,
     $or: [
-      { appliedDate: { $gte: start, $lt: end } },
+      { appliedDate: { $gte: start, $lt: nextDay } },
       {
         appliedDate: { $exists: false },
-        createdAt: { $gte: start, $lt: end },
+        createdAt: { $gte: start, $lt: nextDay },
         status: { $nin: ["wishlist", "planning"] },
       },
     ],

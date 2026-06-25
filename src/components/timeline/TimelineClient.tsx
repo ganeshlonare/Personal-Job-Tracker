@@ -310,11 +310,21 @@ export function TimelineClient({ data }: TimelineClientProps) {
                     {currentDayData.studySessions.length > 0 ? (
                       <div className="space-y-3">
                         {currentDayData.studySessions.map((session, i) => (
-                          <div key={i} className="p-3 rounded-xl border bg-[var(--color-secondary)] flex justify-between items-center">
-                            <h4 className="font-semibold text-sm" style={{ color: "var(--color-foreground)" }}>{session.topic}</h4>
-                            <span className="text-xs font-medium px-2 py-1 rounded bg-foreground/5 text-foreground">
-                              {session.duration} mins
-                            </span>
+                          <div key={i} className="p-3 rounded-xl border bg-[var(--color-secondary)]">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm truncate" style={{ color: "var(--color-foreground)" }}>{session.topic || "Study Session"}</h4>
+                                <p className="text-xs text-muted-foreground mt-0.5">{session.subject}</p>
+                              </div>
+                              <span className="text-xs font-medium px-2 py-1 rounded bg-purple-500/10 text-purple-500 ml-2 flex-shrink-0">
+                                {session.duration} mins
+                              </span>
+                            </div>
+                            {session.type && (
+                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium border mt-2" style={{ color: "var(--color-muted-foreground)", borderColor: "var(--color-border)" }}>
+                                {session.type}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>

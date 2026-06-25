@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth } from "date-fns";
 import { calculateStudyScore } from "@/lib/scoring";
 import mongoose from "mongoose";
+import { getLocalDayBounds } from "@/lib/utils";
 
 export async function getStudySessions(filters?: { subject?: string; dateFrom?: Date; dateTo?: Date }) {
   const session = await auth();
@@ -21,6 +22,10 @@ export async function getStudySessions(filters?: { subject?: string; dateFrom?: 
     query.date = {};
     if (filters.dateFrom) (query.date as Record<string, unknown>).$gte = filters.dateFrom;
     if (filters.dateTo) (query.date as Record<string, unknown>).$lte = filters.dateTo;
+  } else {
+    // If no date filters provided, default to showing today's sessions only
+    const { start: todayStart, end: todayEnd } = getLocalDayBounds();
+    query.date = { $gte: todayStart, $lte: todayEnd };
   }
 
   const sessions = await StudySession.find(query).sort({ date: -1 }).lean();
@@ -32,10 +37,11 @@ export async function getStudyStats(userId: string) {
 
   const uid = new mongoose.Types.ObjectId(userId);
   const now = new Date();
+  const { start: todayStart, end: todayEnd } = getLocalDayBounds(now);
 
   const [todayStats, weekStats, monthStats, subjectBreakdown] = await Promise.all([
     StudySession.aggregate([
-      { $match: { userId: uid, date: { $gte: startOfDay(now), $lte: endOfDay(now) } } },
+      { $match: { userId: uid, date: { $gte: todayStart, $lte: todayEnd } } },
       { $group: { _id: null, total: { $sum: "$duration" }, pomodoros: { $sum: "$pomodoroCount" } } },
     ]),
     StudySession.aggregate([
@@ -82,7 +88,7 @@ export async function createStudySession(data: Record<string, unknown>) {
     // Award points
     const hours = (data.duration as number) / 60;
     const points = calculateStudyScore(hours);
-    const today = startOfDay(new Date());
+    const { start: today } = getLocalDayBounds(new Date());
 
     await DailyScore.findOneAndUpdate(
       { userId: session.user.id, date: today },

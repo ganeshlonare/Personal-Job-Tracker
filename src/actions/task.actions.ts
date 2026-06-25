@@ -6,6 +6,7 @@ import Task from "@/models/Task";
 import DailyScore from "@/models/DailyScore";
 import { revalidatePath } from "next/cache";
 import { startOfDay, endOfDay } from "date-fns";
+import { getLocalDayBounds } from "@/lib/utils";
 
 import DailyTarget from "@/models/DailyTarget";
 import {
@@ -20,14 +21,14 @@ export async function getTasks(date?: Date) {
   await connectDB();
 
   const targetDate = date || new Date();
-  const dayStart = startOfDay(targetDate);
+  const { start: dayStart, end: dayEnd } = getLocalDayBounds(targetDate);
 
   // Auto-generate & sync daily target tasks for this date
   const dailyTargetDoc = await DailyTarget.findOne({ userId: session.user.id });
   if (dailyTargetDoc && dailyTargetDoc.targets.length > 0) {
     const existingGeneratedTasks = await Task.find({
       userId: session.user.id,
-      date: { $gte: dayStart, $lte: endOfDay(targetDate) },
+      date: { $gte: dayStart, $lte: dayEnd },
       isDailyTarget: true,
     });
 
@@ -86,8 +87,8 @@ export async function getTasks(date?: Date) {
   const tasks = await Task.find({
     userId: session.user.id,
     date: {
-      $gte: startOfDay(targetDate),
-      $lte: endOfDay(targetDate),
+      $gte: dayStart,
+      $lte: dayEnd,
     },
   })
     .sort({ completed: 1, priority: -1 })
@@ -176,7 +177,7 @@ export async function deleteTask(id: string) {
 }
 
 async function updateDailyScore(userId: string, points: number, add: boolean) {
-  const today = startOfDay(new Date());
+  const { start: today } = getLocalDayBounds(new Date());
   const delta = add ? points : -points;
 
   await DailyScore.findOneAndUpdate(

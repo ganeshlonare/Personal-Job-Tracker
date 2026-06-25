@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Plus, Trophy, Target, Trash2, X, Loader2, TrendingUp, Calendar, Plus as PlusIcon } from "lucide-react";
+import { Plus, Trophy, Target, Trash2, X, Loader2, TrendingUp, Calendar, Plus as PlusIcon, Pause, Play, Flag, Edit3, MoreVertical } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { createGoal, deleteGoal, incrementGoal } from "@/actions/goal.actions";
+import { createGoal, deleteGoal, incrementGoal, addMilestone, toggleGoalStatus } from "@/actions/goal.actions";
 import { calculatePercentage, formatDate } from "@/lib/utils";
 import type { IGoal } from "@/types";
 
@@ -28,6 +28,9 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
   const [showForm, setShowForm] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [incrementingId, setIncrementingId] = useState<string | null>(null);
+  const [showMilestoneForm, setShowMilestoneForm] = useState<string | null>(null);
+  const [showIncrementModal, setShowIncrementModal] = useState<string | null>(null);
+  const [customIncrement, setCustomIncrement] = useState("1");
 
   const [form, setForm] = useState({
     title: "",
@@ -37,6 +40,11 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
     unit: "",
     deadline: "",
     dailyTarget: "1",
+  });
+
+  const [milestoneForm, setMilestoneForm] = useState({
+    title: "",
+    value: "",
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,7 +121,47 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
     setGoals((prev) => prev.map((g) => g._id === id ? { ...g, currentValue: Math.min(g.currentValue + amount, g.targetValue) } : g));
     await incrementGoal(id, amount);
     setIncrementingId(null);
-    toast.success("+1 progress logged!");
+    toast.success(`+${amount} progress logged!`);
+  };
+
+  const handleCustomIncrement = async () => {
+    const amount = parseInt(customIncrement);
+    if (!amount || amount <= 0 || !showIncrementModal) return;
+    
+    await handleIncrement(showIncrementModal, amount);
+    setShowIncrementModal(null);
+    setCustomIncrement("1");
+  };
+
+  const handleAddMilestone = async () => {
+    if (!milestoneForm.title || !milestoneForm.value || !showMilestoneForm) return;
+    
+    const result = await addMilestone(showMilestoneForm, milestoneForm.title, parseInt(milestoneForm.value));
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    
+    setGoals((prev) => prev.map((g) => 
+      g._id === showMilestoneForm 
+        ? { ...g, milestones: [...(g.milestones || []), { title: milestoneForm.title, value: parseInt(milestoneForm.value), reached: false }] }
+        : g
+    ));
+    
+    setMilestoneForm({ title: "", value: "" });
+    setShowMilestoneForm(null);
+    toast.success("Milestone added!");
+  };
+
+  const handleToggleStatus = async (id: string, status: string) => {
+    const result = await toggleGoalStatus(id, status);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    
+    setGoals((prev) => prev.map((g) => g._id === id ? { ...g, status: status as IGoal["status"] } : g));
+    toast.success(`Goal ${status === "paused" ? "paused" : "resumed"}!`);
   };
 
   const handleDelete = async (id: string) => {
@@ -202,9 +250,10 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
             {activeGoals.map((goal) => {
               const pct = calculatePercentage(goal.currentValue, goal.targetValue);
               const cat = GOAL_CATEGORIES.find((c) => c.value === goal.category);
+              const isPaused = goal.status === "paused";
               return (
                 <motion.div key={goal._id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl p-5 group" style={cardStyle}>
+                  className="rounded-2xl p-5 group relative" style={{ ...cardStyle, opacity: isPaused ? 0.6 : 1 }}>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-xl">{cat?.emoji || "🎯"}</span>
@@ -214,12 +263,19 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleEditClick(goal)} className="text-blue-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                      <button onClick={() => handleEditClick(goal)} className="text-blue-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="Edit">
+                        <Edit3 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(goal._id)} className="text-red-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
+                      {isPaused ? (
+                        <button onClick={() => handleToggleStatus(goal._id, "active")} className="text-green-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="Resume">
+                          <Play className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button onClick={() => handleToggleStatus(goal._id, "paused")} className="text-yellow-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="Pause">
+                          <Pause className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(goal._id)} className="text-red-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -237,6 +293,34 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
                     </div>
                   </div>
 
+                  {/* Milestones */}
+                  {goal.milestones && goal.milestones.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {goal.milestones.map((m, idx) => (
+                        <div key={idx} className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${m.reached ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-secondary text-muted-foreground border border-border"}`}>
+                          <Flag className="w-2.5 h-2.5" />
+                          {m.title} ({m.value})
+                        </div>
+                      ))}
+                      <button onClick={() => setShowMilestoneForm(goal._id)} className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer">
+                        <PlusIcon className="w-2.5 h-2.5" />
+                        Add Milestone
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Milestone Form */}
+                  {showMilestoneForm === goal._id && (
+                    <div className="mb-3 p-3 rounded-xl bg-secondary/50 border border-border">
+                      <div className="flex gap-2">
+                        <input placeholder="Milestone title" value={milestoneForm.title} onChange={(e) => setMilestoneForm((f) => ({ ...f, title: e.target.value }))} className="flex-1 px-2 py-1 rounded-lg text-xs bg-background border border-border outline-none" />
+                        <input placeholder="Value" type="number" value={milestoneForm.value} onChange={(e) => setMilestoneForm((f) => ({ ...f, value: e.target.value }))} className="w-16 px-2 py-1 rounded-lg text-xs bg-background border border-border outline-none" />
+                        <button onClick={handleAddMilestone} className="px-2 py-1 rounded-lg text-xs bg-primary text-white hover:bg-primary/90 cursor-pointer">Add</button>
+                        <button onClick={() => { setShowMilestoneForm(null); setMilestoneForm({ title: "", value: "" }); }} className="px-2 py-1 rounded-lg text-xs bg-secondary text-muted-foreground hover:bg-secondary/80 cursor-pointer">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 text-xs" style={{ color: "var(--color-muted-foreground)" }}>
                       {goal.deadline && (
@@ -244,15 +328,26 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
                       )}
                       <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />{goal.dailyTarget}/day target</span>
                     </div>
-                    <button
-                      onClick={() => handleIncrement(goal._id)}
-                      disabled={incrementingId === goal._id || pct === 100}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
-                      style={{ background: "var(--color-secondary)", color: "var(--color-primary)" }}
-                    >
-                      {incrementingId === goal._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      +1
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowIncrementModal(goal._id)}
+                        disabled={incrementingId === goal._id || pct === 100 || isPaused}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                        style={{ background: "var(--color-secondary)", color: "var(--color-primary)" }}
+                        title="Custom increment"
+                      >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleIncrement(goal._id, goal.dailyTarget)}
+                        disabled={incrementingId === goal._id || pct === 100 || isPaused}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                        style={{ background: "linear-gradient(135deg, #F59E0B, #EAB308)", color: "white" }}
+                      >
+                        {incrementingId === goal._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusIcon className="w-3.5 h-3.5" />}
+                        +{goal.dailyTarget}
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               );
@@ -278,6 +373,55 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
           ))}
         </div>
       )}
+
+      {/* Custom Increment Modal */}
+      <AnimatePresence>
+        {showIncrementModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => { setShowIncrementModal(null); setCustomIncrement("1"); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="rounded-2xl p-6 w-full max-w-sm"
+              style={{ background: "var(--color-card)", border: "1px solid var(--color-border)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-foreground)" }}>Custom Progress</h3>
+              <input
+                type="number"
+                value={customIncrement}
+                onChange={(e) => setCustomIncrement(e.target.value)}
+                placeholder="Enter amount"
+                className="w-full px-4 py-3 rounded-xl text-lg font-bold text-center mb-4 outline-none"
+                style={{ background: "var(--color-secondary)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowIncrementModal(null); setCustomIncrement("1"); }}
+                  className="flex-1 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                  style={{ color: "var(--color-muted-foreground)", background: "var(--color-secondary)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomIncrement}
+                  className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-white cursor-pointer"
+                  style={{ background: "linear-gradient(135deg, #F59E0B, #EAB308)" }}
+                >
+                  Add Progress
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

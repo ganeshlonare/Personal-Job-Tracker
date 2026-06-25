@@ -13,6 +13,7 @@ import Project from "@/models/Project";
 import User from "@/models/User";
 import mongoose from "mongoose";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, subDays, format } from "date-fns";
+import { getLocalDayBounds } from "@/lib/utils";
 
 export async function getDashboardData() {
   const session = await auth();
@@ -28,8 +29,7 @@ export async function getDashboardData() {
   }
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
+  const { start: todayStart, end: todayEnd } = getLocalDayBounds(now);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
@@ -155,8 +155,8 @@ export async function getDashboardData() {
 
   // Auto-update streak if they have any score today but streak logic hasn't run
   // We can also update the User document with the real calculated streak
-  if (realStreak !== (user as any).currentStreak) {
-    await User.findByIdAndUpdate(userId, { 
+  if (user && realStreak !== (user as any).currentStreak) {
+    await User.findByIdAndUpdate(userId, {
       currentStreak: realStreak,
       ...(realStreak > ((user as any).longestStreak || 0) ? { longestStreak: realStreak } : {})
     });

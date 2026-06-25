@@ -133,7 +133,13 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
   const inputCls =
     "px-3 py-2.5 rounded-xl text-sm outline-none w-full cursor-text bg-[var(--color-secondary)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 transition-all";
 
-  const todayKey = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayKey = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
   const todays = mails.filter(m => m.date?.split("T")[0] === todayKey);
 
   function fillTemplateValues(tplBody?: string, tplSubject?: string) {
@@ -176,7 +182,7 @@ export default function ColdMailsClient({ initialMails = [] }: Props) {
         status: form.status,
         templateId: form.templateId,
         body: form.body,
-        date: new Date(form.date),
+        date: new Date(form.date + "T00:00:00"),
       } as any;
 
       if (editingId) {

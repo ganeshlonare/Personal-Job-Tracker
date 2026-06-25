@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import ColdMail from "@/models/ColdMail";
 import { revalidatePath } from "next/cache";
+import { getLocalDayBounds } from "@/lib/utils";
 
 export async function getColdMails() {
   const session = await auth();
@@ -73,11 +74,8 @@ export async function getTodaysColdMailCount() {
   if (!session?.user?.id) return { count: 0 };
 
   await connectDB();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  const { start, nextDay } = getLocalDayBounds();
 
-  const count = await ColdMail.countDocuments({ userId: session.user.id, date: { $gte: start, $lt: end } });
+  const count = await ColdMail.countDocuments({ userId: session.user.id, date: { $gte: start, $lt: nextDay } });
   return { count };
 }

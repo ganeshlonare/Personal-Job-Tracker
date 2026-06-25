@@ -70,10 +70,59 @@ export async function incrementGoal(id: string, amount: number = 1) {
       await Goal.findByIdAndUpdate(id, { status: "completed" });
     }
 
+    // Check milestones
+    if (goal && goal.milestones && goal.milestones.length > 0) {
+      const updatedMilestones = goal.milestones.map((m: any) => {
+        if (!m.reached && goal.currentValue >= m.value) {
+          return { ...m, reached: true, reachedAt: new Date() };
+        }
+        return m;
+      });
+      await Goal.findByIdAndUpdate(id, { milestones: updatedMilestones });
+    }
+
     revalidatePath("/goals");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch {
     return { error: "Failed to update goal" };
+  }
+}
+
+export async function addMilestone(goalId: string, title: string, value: number) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  try {
+    await connectDB();
+    await Goal.findByIdAndUpdate(
+      { _id: goalId, userId: session.user.id },
+      { $push: { milestones: { title, value, reached: false } } }
+    );
+
+    revalidatePath("/goals");
+    return { success: true };
+  } catch {
+    return { error: "Failed to add milestone" };
+  }
+}
+
+export async function toggleGoalStatus(id: string, status: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  try {
+    await connectDB();
+    await Goal.findOneAndUpdate(
+      { _id: id, userId: session.user.id },
+      { $set: { status } }
+    );
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch {
+    return { error: "Failed to update status" };
   }
 }
 

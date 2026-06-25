@@ -66,7 +66,7 @@ export function TodayClient({ initialTasks, initialDate }: TodayClientProps) {
 
   const completed = tasks.filter((t) => t.completed);
   const pending = tasks.filter((t) => !t.completed);
-  const dailyTargetTasks = tasks.filter((t) => (t as ITask & { isDailyTarget?: boolean }).isDailyTarget);
+  const dailyTargetTasks = pending.filter((t) => (t as ITask & { isDailyTarget?: boolean }).isDailyTarget);
   const otherPending = pending.filter((t) => !(t as ITask & { isDailyTarget?: boolean }).isDailyTarget);
   const totalScore = completed.reduce((s, t) => s + t.points, 0);
   const progress = calculatePercentage(completed.length, tasks.length);

@@ -66,3 +66,23 @@ export function truncate(str: string, length: number): string {
   if (str.length <= length) return str;
   return str.slice(0, length) + "...";
 }
+
+export function getServerTimeZone(): string {
+  return (
+    process.env.TZ ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    "UTC"
+  );
+}
+
+export function getLocalDayBounds(date = new Date(), timeZone?: string) {
+  const tz = timeZone || getServerTimeZone();
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(date);
+  const [year, month, day] = localDate.split("-").map(Number);
+  // Use local time instead of UTC to properly handle midnight boundary
+  const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+  const nextDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+  return { start, end, nextDay, timeZone: tz };
+}
